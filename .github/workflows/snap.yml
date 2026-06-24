@@ -1,0 +1,92 @@
+name: snap
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  snap:
+    uses: canonical/robotics-actions-workflows/.github/workflows/snap.yaml@main
+    with:
+      runs-on: '["ubuntu-24.04", "ubuntu-24.04-arm"]'
+      snap-risk: candidate
+      snap-test-script: |
+        # Enable and start the daemon (installed disabled by default)
+        sudo snap start --enable zenoh-bridge-ros2dds.bridge
+        sleep 5
+
+        # Verify the service is active and listening on the default port
+        snap services zenoh-bridge-ros2dds.bridge | grep -q active
+
+        # Verify Zenoh is listening on port 7447
+        ss -ltn | grep -q ':7447'
+
+        # Write a config file overriding the default listen port
+        sudo tee /var/snap/zenoh-bridge-ros2dds/common/config.json5 > /dev/null <<'ZENOH_CONFIG'
+        { listen: { endpoints: ["tcp/0.0.0.0:17447"] } }
+        ZENOH_CONFIG
+
+        sudo snap restart zenoh-bridge-ros2dds.bridge
+        sleep 5
+
+        # Verify the service is active and listening on the configured port
+        snap services zenoh-bridge-ros2dds.bridge | grep -q active
+        ss -ltn | grep -q ':17447'
+
+        # Verify the bridge is visible as a ROS 2 node
+        # DDS discovery can take several seconds; retry for up to 30 s
+        sudo snap install ros2-cli --channel=jazzy/stable
+        for i in $(seq 1 15); do
+          ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST ros2-cli.ros2 node list 2>/dev/null \
+            | grep -q zenoh_bridge_ros2dds && break
+          [ "$i" -eq 15 ] && {
+            echo "zenoh_bridge_ros2dds not found after 30 s. Visible nodes:"
+            ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST ros2-cli.ros2 node list 2>/dev/null || true
+            exit 1
+          }
+          sleep 2
+        done
+
+        # Test cross-domain bridging:
+        # - snap bridge (A) : domain 0, listen on 17447
+        # - snap bridge (B) : domain 1, connect to 17447
+        # - publish on domain 0, expect message on domain 1
+        sudo tee /var/snap/zenoh-bridge-ros2dds/common/config_bridge_b.json5 > /dev/null <<'ZENOH_CONFIG2'
+        {
+          connect: { endpoints: ["tcp/127.0.0.1:17447"] },
+          plugins: { ros2dds: { domain: 1, ros_automatic_discovery_range: "LOCALHOST" } }
+        }
+        ZENOH_CONFIG2
+
+        snap run zenoh-bridge-ros2dds.zenoh-bridge-ros2dds \
+          -c /var/snap/zenoh-bridge-ros2dds/common/config_bridge_b.json5 &
+        BRIDGE_B_PID=$!
+        sleep 3
+
+        # Start subscriber first, then publish in a loop so the message isn't missed
+        RECEIVED_FILE=$(mktemp)
+        (
+          ROS_DOMAIN_ID=1 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+            timeout 15 ros2-cli.ros2 topic echo /hello std_msgs/msg/String --once \
+            > "${RECEIVED_FILE}" 2>/dev/null || true
+        ) &
+        ECHO_PID=$!
+
+        ROS_DOMAIN_ID=0 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+          ros2-cli.ros2 topic pub /hello std_msgs/msg/String "{data: 'hello'}" --rate 1 &
+        PUB_PID=$!
+
+        wait "${ECHO_PID}"
+        kill "${PUB_PID}" 2>/dev/null || true
+
+        kill "${BRIDGE_B_PID}" 2>/dev/null || true
+
+        grep -q "hello" "${RECEIVED_FILE}"
+        rm -f "${RECEIVED_FILE}"
+    secrets:
+      snapstore-login: ${{ secrets.SNAPSTORE_LOGIN }}

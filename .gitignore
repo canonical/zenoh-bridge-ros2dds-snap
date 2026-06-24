@@ -1,0 +1,8 @@
+*.snap
+test*
+*.craft
+.github/agents/
+overlay/
+parts/
+prime/
+stage/

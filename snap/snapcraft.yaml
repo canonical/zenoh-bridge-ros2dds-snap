@@ -1,0 +1,93 @@
+name: zenoh-bridge-ros2dds
+adopt-info: zenoh-bridge-ros2dds
+title: Zenoh Bridge for ROS 2 over DDS
+summary: A Zenoh bridge for ROS 2 over DDS
+description: |
+  Bridges all ROS 2 communications using DDS over Zenoh. A typical usage
+  is to run one bridge on a robot and one bridge on a remote host, connecting
+  them via TCP without any DDS traffic crossing network boundaries.
+
+  The bridge daemon is installed disabled. Enable and start it with:
+
+    sudo snap start --enable zenoh-bridge-ros2dds.bridge
+
+  To stop and disable it again:
+
+    sudo snap stop --disable zenoh-bridge-ros2dds.bridge
+
+  To run an ad-hoc bridge instance without the daemon:
+
+  zenoh-bridge-ros2dds [OPTIONS]
+
+  Configuration is auto-discovered on startup.
+  Place the configuration file in one of these locations:
+
+    ~/snap/zenoh-bridge-ros2dds/common/   (ad-hoc app only; takes precedence)
+    /var/snap/zenoh-bridge-ros2dds/common/  (daemon and ad-hoc app)
+
+  Pass -c <file> explicitly to skip auto-discovery.
+
+  A reference configuration is available in the upstream repository:
+    https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds/blob/main/DEFAULT_CONFIG.json5
+
+license: Apache-2.0
+website: https://github.com/canonical/zenoh-bridge-ros2dds-snap
+source-code: https://github.com/canonical/zenoh-bridge-ros2dds-snap
+issues: https://github.com/canonical/zenoh-bridge-ros2dds-snap/issues
+contact: ubuntu-robotics-community@canonical.com
+
+confinement: strict
+grade: stable
+base: core26
+
+platforms:
+  amd64:
+  arm64:
+
+apps:
+  bridge:
+    command: usr/bin/launch.sh
+    daemon: simple
+    install-mode: disable
+    plugs: [network, network-bind]
+  zenoh-bridge-ros2dds:
+    command: usr/bin/launch.sh
+    plugs: [network, network-bind]
+
+parts:
+  cmake-shim:
+    # See snap/local/cmake-shim/cmake for the rationale.
+    plugin: dump
+    source: snap/local/cmake-shim/
+    organize:
+      cmake: cmake-shim/cmake
+    prime:
+      - '-*'  # build-time only; do not include in the final snap
+
+  zenoh-bridge-ros2dds:
+    after: [cmake-shim]
+    plugin: rust
+    source: https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds.git
+    source-tag: '1.9.0'
+    build-packages:
+      - cmake
+      - make
+      - g++
+      - libclang-dev
+      - llvm-dev
+    rust-cargo-parameters: ["--package", "zenoh-bridge-ros2dds"]
+    build-environment:
+      - PATH: "${CRAFT_STAGE}/cmake-shim:${PATH}"
+    override-pull: |
+      craftctl default
+      craftctl set version="$(git describe --always --tags | sed -e 's/^v//;s/-/+git/;y/-/./')"
+    prime:
+      - zenoh-bridge-ros2dds
+
+  local-files:
+    plugin: dump
+    source: snap/local/
+    organize:
+      '*.sh': usr/bin/
+    prime:
+      - usr/bin/
