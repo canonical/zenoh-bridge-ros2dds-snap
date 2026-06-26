@@ -56,37 +56,29 @@ jobs:
         # - snap bridge (A) : domain 0, listen on 17447
         # - snap bridge (B) : domain 1, connect to 17447
         # - publish on domain 0, expect message on domain 1
-        sudo tee /var/snap/zenoh-bridge-ros2dds/common/config_bridge_b.json5 > /dev/null <<'ZENOH_CONFIG2'
+        sudo tee /var/snap/zenoh-bridge-ros2dds/common/config_bridge_b.json5 > /dev/null <<'ZENOH_CONFIG_B'
         {
           connect: { endpoints: ["tcp/127.0.0.1:17447"] },
           plugins: { ros2dds: { domain: 1, ros_automatic_discovery_range: "LOCALHOST" } }
         }
-        ZENOH_CONFIG2
+        ZENOH_CONFIG_B
 
         snap run zenoh-bridge-ros2dds.zenoh-bridge-ros2dds \
           -c /var/snap/zenoh-bridge-ros2dds/common/config_bridge_b.json5 &
         BRIDGE_B_PID=$!
         sleep 3
 
-        # Start subscriber first, then publish in a loop so the message isn't missed
+        ROS_DOMAIN_ID=0 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
+          ros2-cli.ros2 topic pub /hello std_msgs/msg/String "{data: 'hello'}" --rate 1 &
+        PUB_PID=$!
+
         RECEIVED_FILE=$(mktemp)
         (
           ROS_DOMAIN_ID=1 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
             timeout 15 ros2-cli.ros2 topic echo /hello std_msgs/msg/String --once \
             > "${RECEIVED_FILE}" 2>/dev/null || true
-        ) &
-        ECHO_PID=$!
-
-        ROS_DOMAIN_ID=0 ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST \
-          ros2-cli.ros2 topic pub /hello std_msgs/msg/String "{data: 'hello'}" --rate 1 &
-        PUB_PID=$!
-
-        wait "${ECHO_PID}"
-        kill "${PUB_PID}" 2>/dev/null || true
-
-        kill "${BRIDGE_B_PID}" 2>/dev/null || true
+        )
 
         grep -q "hello" "${RECEIVED_FILE}"
-        rm -f "${RECEIVED_FILE}"
     secrets:
       snapstore-login: ${{ secrets.SNAPSTORE_LOGIN }}

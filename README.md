@@ -45,16 +45,16 @@ Place the configuration file in one of the following directories:
 
 Having more than one extension in the same directory is an error — the launcher will print the conflicting filenames and exit.
 
-To bypass auto-discovery and pass a config explicitly:
-
-```bash
-snap run zenoh-bridge-ros2dds.zenoh-bridge-ros2dds -c ~/snap/zenoh-bridge-ros2dds/common/my-config.json5
-```
-
 After changing the daemon's config, restart it:
 
 ```bash
 sudo snap restart zenoh-bridge-ros2dds.bridge
+```
+
+To bypass auto-discovery and pass a config explicitly:
+
+```bash
+snap run zenoh-bridge-ros2dds.zenoh-bridge-ros2dds -c ~/snap/zenoh-bridge-ros2dds/common/my-config.json5
 ```
 
 See the [upstream DEFAULT_CONFIG.json5](https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds/blob/main/DEFAULT_CONFIG.json5)
