@@ -1,0 +1,15 @@
+#!/bin/bash
+# cmake shim — injects -DCMAKE_POLICY_VERSION_MINIMUM=3.5 on configure calls.
+#
+# CMake 4.x (Ubuntu 26.04) removed backward compatibility with
+# cmake_minimum_required(VERSION < 3.5). cyclocut (inside cyclors 0.2.7) has
+# an old CMakeLists.txt that triggers this, and the cmake-rs crate (0.1.58)
+# provides no way to inject the flag from outside its build.rs.
+#
+# This wrapper is prepended to PATH during the zenoh-bridge-ros2dds build so
+# cargo's cmake crate picks it up instead of /usr/bin/cmake. --build and
+# --install invocations are passed through unchanged.
+for arg in "$@"; do
+    [[ "$arg" == "--build" || "$arg" == "--install" ]] && exec /usr/bin/cmake "$@"
+done
+exec /usr/bin/cmake "$@" -DCMAKE_POLICY_VERSION_MINIMUM=3.5
