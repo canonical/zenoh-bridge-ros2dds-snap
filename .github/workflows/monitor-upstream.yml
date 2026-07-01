@@ -1,4 +1,7 @@
-name: monitor-upstream
+name: Monitor upstream releases
+
+permissions:
+  issues: write
 
 on:
   schedule:

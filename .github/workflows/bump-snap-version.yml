@@ -1,4 +1,9 @@
-name: bump-snap-version
+name: Address update tickets
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: write
 
 on:
   schedule:
@@ -6,5 +11,5 @@ on:
   workflow_dispatch:
 
 jobs:
-  bump-snap-version:
+  address-update-tickets:
     uses: canonical/robotics-actions-workflows/.github/workflows/bump-snap-version.yaml@main

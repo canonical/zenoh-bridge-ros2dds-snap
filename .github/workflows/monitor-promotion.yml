@@ -1,4 +1,7 @@
-name: monitor-promotion
+name: Monitor promotion
+
+permissions:
+  issues: write
 
 on:
   schedule:
