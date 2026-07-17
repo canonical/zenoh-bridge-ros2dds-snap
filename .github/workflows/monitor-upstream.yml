@@ -1,6 +1,7 @@
 name: Monitor upstream releases
 
 permissions:
+  contents: read
   issues: write
 
 on:
