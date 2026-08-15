@@ -29,21 +29,17 @@ description: |
 
   A reference configuration is available in the upstream repository:
     https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds/blob/main/DEFAULT_CONFIG.json5
-
 license: Apache-2.0
 website: https://github.com/canonical/zenoh-bridge-ros2dds-snap
 source-code: https://github.com/canonical/zenoh-bridge-ros2dds-snap
 issues: https://github.com/canonical/zenoh-bridge-ros2dds-snap/issues
 contact: ubuntu-robotics-community@canonical.com
-
 confinement: strict
 grade: stable
 base: core26
-
 platforms:
   amd64:
   arm64:
-
 apps:
   bridge:
     command: usr/bin/launch.sh
@@ -53,7 +49,6 @@ apps:
   zenoh-bridge-ros2dds:
     command: usr/bin/launch.sh
     plugs: [network, network-bind]
-
 parts:
   cmake-shim:
     # See snap/local/cmake-shim/cmake for the rationale.
@@ -62,13 +57,12 @@ parts:
     organize:
       cmake: cmake-shim/cmake
     prime:
-      - '-*'  # build-time only; do not include in the final snap
-
+      - '-*' # build-time only; do not include in the final snap
   zenoh-bridge-ros2dds:
     after: [cmake-shim]
     plugin: rust
     source: https://github.com/eclipse-zenoh/zenoh-plugin-ros2dds.git
-    source-tag: '1.9.0'
+    source-tag: '1.10.0'
     build-packages:
       - cmake
       - make
@@ -83,7 +77,6 @@ parts:
       craftctl set version="$(git describe --always --tags | sed -e 's/^v//;s/-/+git/;y/-/./')"
     prime:
       - zenoh-bridge-ros2dds
-
   local-files:
     plugin: dump
     source: snap/local/
